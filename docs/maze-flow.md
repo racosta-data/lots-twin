@@ -1,7 +1,6 @@
 # Maze Flow — End-to-End Visual
 
 > Status: draft v0.1 — technical artifact (English). Business contract stays in Spanish.
-> Source of truth for `evaluate(context) -> Result` and the zone router.
 
 ## Glossary (contract ES → code EN)
 
@@ -27,101 +26,37 @@
 | manifiesto | `manifest` |
 | evento de auditoría | `audit_event` |
 
-## 1. High-level pipeline (backend -> viewer)
+## 1. High-level pipeline
+![Pipeline](https://mermaid.ink/img/Zmxvd2NoYXJ0IExSCiAgU1RBQ1soU1RBQyBjYXRhbG9nKV0gLS0+IElOR1tJTkdFU1Q8YnIvPlAwLVAyPGJyLz5kb3dubG9hZCArIGhhc2hdCiAgSU5HIC0tPiBNQVpFW01BWkU8YnIvPlAzPGJyLz52ZWN0b3IgNXgxICsgc2NlbmUgM3gzXQogIE1BWkUgLS0+IFpPTkVTW1pPTkVTPGJyLz5QNDxici8+cmF3IC8gdmFsaWRhdGVkIC88YnIvPnJlamVjdGVkIC8gdW5rbm93bl0KICBaT05FUyAtLT4gQVVESVRbQVVESVQ8YnIvPlAwLVA3PGJyLz5oYXNoIGNoYWluPGJyLz5hcHBlbmQtb25seV0KICBBVURJVCAtLT4gUFVCW1BVQkxJQ0FUSU9OPGJyLz5QNS1QNzxici8+bWFuaWZlc3QgKyByb3VuZC10cmlwXQogIFBVQiAtLT4gVklFV1tNYXBib3ggdmlld2VyPGJyLz5kZXJpdmVkXQ==)
 
-```mermaid
-flowchart LR
-  STAC[(STAC catalog)] --> ING[INGEST<br/>P0-P2<br/>download + hash]
-  ING --> MAZE[MAZE<br/>P3<br/>vector 5x1 + scene 3x3]
-  MAZE --> ZONES[ZONES<br/>P4<br/>raw / validated /<br/>rejected / unknown]
-  ZONES --> AUDIT[AUDIT<br/>P0-P7<br/>hash chain<br/>append-only]
-  AUDIT --> PUB[PUBLICATION<br/>P5-P7<br/>manifest + round-trip]
-  PUB --> VIEW[Mapbox viewer<br/>derived]
+**Rule:** the viewer is *derived*. Truth lives in the `validated` zone + audit chain.
 
----
+## 2. Vector track (5x1)
+![Vector Track](https://mermaid.ink/img/Zmxvd2NoYXJ0IFRECiAgTFt0ZXJyaXRvcnkgbGF5ZXJdIC0tPiBWMXtWMQk8YnIvPmdlb21ldHJ5IHZhbGlkP30KICBWMSAtLSBQQVNTIC0tPiBWMntWMjxici8+bm8gb3ZlcmxhcHM/fQogIFYxIC0tIEZBSUwgLS0+IEUxW0RRLTU0MV0KICBWMiAtLSBQQVNTIC0tPiBWM3tWMzxici8+YXR0cnMgY29tcGxldGU/fQogIFYyIC0tIEZBSUwgLS0+IEUyW0RRLTU0Ml0KICBWMyAtLSBQQVNTIC0tPiBWNHtWNDxici8+REFORSBjb2RlIGluIGNhdGFsb2c/fQogIFYzIC0tIEZBSUwgLS0+IEUzW0RRLTUwMV0KICBWNCAtLSBQQVNTIC0tPiBWNXtWNTxici8+bGF5ZXIgZWZmZWN0aXZlP30KICBWNCAtLSBGQUlMIC0tPiBFNFtEUS01NDBdCiAgVjUgLS0gUEFTUyAtLT4gT1BFTltUUkFDSyBPUEVOXQogIFY1IC0tIEZBSUwgLS0+IEU1W0RRLTU0NF0KICBFMSAmIEUyICYgRTMgJiBFNCAmIEU1IC0tPiBCTE9DS1tbVFJBQ0sgQkxPQ0tFRDxici8+c2NlbmVzID0gVU5LTk9XTjxici8+c3VicmVhc29uPVZFQ1RPUl9UUkFDS19GQUlMRURdXQ==)
 
-**BLOQUE 2:**
-```markdown
-## 2. Vector track (5x1) — once per layer version
+## 3. Scene maze (3x3)
+![Scene Maze](https://mermaid.ink/img/Zmxvd2NoYXJ0IFRECiAgVChbc2NlbmUgdG9rZW5dKSAtLT4gQTF7QTE8YnIvPmlkZW50aXR5IHVuaXF1ZT99CiAgQTEgLS0gUEFTUyAtLT4gQTJ7QTI8YnIvPmludGVncml0eSBoYXNoK29wZW5zP30KICBBMSAtLSBGQUlMIC0tPiBSNTMwW1JFSkVDVEVEIERRLTUzMF0KICBBMiAtLSBQQVNTIC0tPiBBM3tBMzxici8+YmFzZWxpbmUga25vd24/fQogIEEyIC0tIEZBSUwgLS0+IFI1NTBbUkVKRUNURUQgRFEtNTUwXQogIEEzIC0tIFBBU1MgLS0+IEIxe0IxPGJyLz5DUlMgY29oZXJlbnQ/fQogIEEzIC0tIEZBSUwgLS0+IFI1MzFbUkVKRUNURUQgRFEtNTMxXQogIEIxIC0tIFBBU1MgLS0+IEIye0IyPGJyLz5mb290cHJpbnQvYmJveCBjb2hlcmVudD99CiAgQjEgLS0gRkFJTCAtLT4gUlOQXFJFSkVDVEVEIERRLTUxMF0KICBCMiAtLSBQQVNTIC0tPiBCM3tCMzxici8+dGVycml0b3J5IGluc2lkZSBmb290cHJpbnQ/fQogIEIyIC0tIEZBSUwgLS0+IFI1MTFbUkVKRUNURUQgRFEtNTExXQogIEIzIC0tIFBBU1MgLS0+IEMxe0MxPGJyLz5yZXF1aXJlZCBiYW5kcz99CiAgQjMgLS0gRkFJTCAtLT4gUlIxMltSRUpFQ1RFRCBEUS01MTJdCiAgQzEgLS0gUEFTUyAtLT4gQzJ7QzI8YnIvPnZhbHVlcyBpbiBiYXNlbGluZSByYW5nZT99CiAgQzEgLS0gRkFJTCAtLT4gUlI1MjJbUkVKRUNURUQgRFEtNTIyXQogIEMyIC0tIFBBU1MgLS0+IEMze0MzPGJyLz51c2FibGVfY292ZXJhZ2UgPj0gdGhyP30KICBDMiAtLSBGQUlMIC0tPiBSNTIzW1JFSkVDVEVEIERRLTUyM10KICBDMyAtLSBQQVNTIC0tPiBPS1tbVkFMSURBVEVEXV0KICBDMyAtLSBGQUlMIC0tPiBSNTIwW1JFSkVDVEVEIERRLTUyMC81MjFdXQ==)
 
-```mermaid
-flowchart TD
-  L[territory layer] --> V1{V1<br/>geometry valid?}
-  V1 -- PASS --> V2{V2<br/>no overlaps?}
-  V1 -- FAIL --> E1[DQ-541]
-  V2 -- PASS --> V3{V3<br/>attrs complete?}
-  V2 -- FAIL --> E2[DQ-542]
-  V3 -- PASS --> V4{V4<br/>DANE code in catalog?}
-  V3 -- FAIL --> E3[DQ-501]
-  V4 -- PASS --> V5{V5<br/>layer effective?}
-  V4 -- FAIL --> E4[DQ-540]
-  V5 -- PASS --> OPEN[[TRACK OPEN]]
-  V5 -- FAIL --> E5[DQ-544]
-  E1 & E2 & E3 & E4 & E5 --> BLOCK[[TRACK BLOCKED<br/>scenes = UNKNOWN<br/>subreason=VECTOR_TRACK_FAILED]]
-flowchart TD
-  T([scene token]) --> A1{A1<br/>identity unique?}
-  A1 -- PASS --> A2{A2<br/>integrity hash+opens?}
-  A1 -- FAIL --> R530[REJECTED DQ-530]
-  A2 -- PASS --> A3{A3<br/>baseline known?}
-  A2 -- FAIL --> R550[REJECTED DQ-550]
-  A3 -- PASS --> B1{B1<br/>CRS coherent?}
-  A3 -- FAIL --> R531[REJECTED DQ-531]
-  B1 -- PASS --> B2{B2<br/>footprint/bbox coherent?}
-  B1 -- FAIL --> R510[REJECTED DQ-510]
-  B2 -- PASS --> B3{B3<br/>territory inside footprint?}
-  B2 -- FAIL --> R511[REJECTED DQ-511]
-  B3 -- PASS --> C1{C1<br/>required bands?}
-  B3 -- FAIL --> R512[REJECTED DQ-512]
-  C1 -- PASS --> C2{C2<br/>values in baseline range?}
-  C1 -- FAIL --> R522[REJECTED DQ-522]
-  C2 -- PASS --> C3{C3<br/>usable_coverage >= thr?}
-  C2 -- FAIL --> R523[REJECTED DQ-523]
-  C3 -- PASS --> OK[[VALIDATED]]
-  C3 -- FAIL --> R520[REJECTED DQ-520/521]
+## 4. Gate state machine
+![State Machine](https://mermaid.ink/img/c3RhdGVEaWFncmFtLXYyCiAgWypdIC0tPiBFVkFMVUFURQogIEVWQUxVQVRFIC0tPiBQQVNTOiBydWxlIGhvbGRzCiAgRVZBTFVBVEUgLS0+IEZBSUw6IHJ1bGUgdmlvbGF0ZWQKICBFVkFMVUFURSAtLT4gVU5LTk9XTjogaW5wdXQgbWlzc2luZwogIFBBU1MgLS0+IFsqXTogYWR2YW5jZQogIEZBSUwgLS0+IFsqXTogd2FsbCAtPiBSRUpFQ1RFRAogIFVOS05PV04gLS0+IFsqXTogbm8gYWR2YW5jZQ==)
 
+## 5. Zones & partitioning
+![Zones](https://mermaid.ink/img/Zmxvd2NoYXJ0IFRECiAgUkVTW3NjZW5lIHJlc3VsdF0gLS0+IFJPVVRFUntyb3V0ZXI8YnIvPnByZWNlZGVuY2UgcnVsZX0KICBST1VURVIgLS0+IFJBV1tSQVc8YnIvPmltbXV0YWJsZSArIGhhc2hdCiAgUk9VVEVSIC0tPiBWQUxbVkFMSURBVEVEPGJyLz45eCBQQVNTLCAwIGltcHV0ZWRdCiAgUk9VVEVSIC0tPiBSRUpbUkVKRUNURUQ8YnIvPj49MSBGQUlMICsgRFFdCiAgUk9VVEVSIC0tPiBVTktbVU5LTk9XTjxici8+bm8gRkFJTCwgYW55IFVOS10KICBWQUwgLS0+IE1FVFtNRVRSSUMgbW9udGhseTxici8+c2VyaWVzIGxldmVsXQ==)
 
----
+## 6. Audit chain
+![Audit](https://mermaid.ink/img/Zmxvd2NoYXJ0IExSCiAgUDBbUDAgcmVxdWVzdF0gLS0+IFAxW1AxIGNhdGFsb2cgcmVzcF0KICBQMSAtLT4gUDJbUDIgdHJhbnNwb3J0XQogIFAyIC0tPiBQM1tQMyBtYXplXQogIFAzIC0tPiBQNFtQNCBwZXJzaXN0XQogIFA0IC0tPiBQNVtQNSBwcmVwXQogIFA1IC0tPiBQNltQNiB1cGxvYWRdCiAgUDYgLS0+IFA3W1A3IGNvbnN1bWVd)
 
-**BLOQUE 3:**
-```markdown
-## 4. Gate state machine (per cell)
+## 7. Publication & viewer
+![Publication](https://mermaid.ink/img/Zmxvd2NoYXJ0IExSCiAgVkFMW3ZhbGlkYXRlZCB6b25lXSAtLT4gUFJFUFtQUkVQIFA1PGJyLz5tYXNrICsgbWV0cmljc10KICBQUkVQIC0tPiBVUFtVUExPQUQgUDY8YnIvPnRpbGVzZXQgdmVyc2lvbjxici8+bm8gb3ZlcndyaXRlXQogIFVQIC0tPiBSVHtyb3VuZC10cmlwPGJyLz5jb3VudCArIHByb3BzfQogIFJUIC0tIG1hdGNoIC0tPiBBQ1RBY3RpdmU9dHJ1ZV0KICBSVCAtLSBtaXNtYXRjaCAtLT4gTk9bRFEtNTcwPGJyLz5hY3RpdmU9ZmFsc2Vd)
 
-```mermaid
-stateDiagram-v2
-  [*] --> EVALUATE
-  EVALUATE --> PASS: rule holds
-  EVALUATE --> FAIL: rule violated
-  EVALUATE --> UNKNOWN: input missing / not evaluated
-  PASS --> [*]: advance
-  FAIL --> [*]: wall -> REJECTED
-  UNKNOWN --> [*]: no advance (subreason)
-flowchart TD
-  RES[scene result] --> ROUTER{router<br/>precedence rule}
-  ROUTER --> RAW[RAW<br/>immutable + hash]
-  ROUTER --> VAL[VALIDATED<br/>9x PASS, 0 imputed]
-  ROUTER --> REJ[REJECTED<br/>>=1 FAIL + DQ]
-  ROUTER --> UNK[UNKNOWN<br/>no FAIL, any UNK]
-  VAL --> MET[METRIC monthly<br/>series level]
-flowchart LR
-  P0[P0 request] --> P1[P1 catalog resp]
-  P1 --> P2[P2 transport]
-  P2 --> P3[P3 maze]
-  P3 --> P4[P4 persist]
-  P4 --> P5[P5 prep]
-  P5 --> P6[P6 upload]
-  P6 --> P7[P7 consume]
-flowchart LR
-  VAL[validated zone] --> PREP[PREP P5<br/>mask + metrics]
-  PREP --> UP[UPLOAD P6<br/>tileset version<br/>no overwrite]
-  UP --> RT{round-trip<br/>count + props}
-  RT -- match --> ACT[active=true<br/>register P7]
-  RT -- mismatch --> NO[DQ-570<br/>active=false]
+## 8. One-glance summary
+![Summary](https://mermaid.ink/img/Zmxvd2NoYXJ0IFRECiAgU1tTVEFDXSAtLT4gSU5HW0lOR0VTVF0KICBJTkcgLS0+IFZFQ1tWRUNUT1IgNXgxPGJyLz5vcGVuL2Nsb3NlZF0KICBWRUMgLS0+IE1BWkVbTUFaRSAzeDM8YnIvPkEtPkItPkM8YnIvPnN0b3AgYXQgZmlyc3Qgd2FsbF0KICBNQVpFIC0tPiBae1ZBTElEQVRFRCAvIFJFSkVDVEVEIC8gVU5LTk9XTn0KICBaIC0tPiBBVURbQVVESVQgQ0hBSU48YnIvPlAwLVA3IGhhc2gtbGlua2VkXQogIEFVRCAtLT4gUFVCW1BVQkxJQ0FUSU9OPGJyLz5tYW5pZmVzdCArIHJvdW5kLXRyaXBdCiAgUFVCIC0tPiBNQVBbTWFwYm94PGJyLz5kZXJpdmVkXQ==)
 
-flowchart TD
-  S[STAC] --> ING[INGEST]
-  ING --> VEC[VECTOR 5x1<br/>open/closed]
-  VEC --> MAZE[MAZE 3x3<br/>A->B->C<br/>stop at first wall]
-  MAZE --> Z{VALIDATED / REJECTED / UNKNOWN}
-  Z --> AUD[AUDIT CHAIN<br/>P0-P7 hash-linked]
-  AUD --> PUB[PUBLICATION<br/>manifest + round-trip]
-  PUB --> MAP[Mapbox<br/>derived, UNKNOWN hatched]
+## Open P0 decisions
+- [ ] Precedence FAIL > UNKNOWN.
+- [ ] V5 (layer effective) = precondition.
+- [ ] B3 threshold: 100% strict or tolerance.
+- [ ] C1 (required bands) = precondition.
+- [ ] A2 + A3 merge?.
+- [ ] P7 in v1 or v2.
+- [ ] Publication scope.
