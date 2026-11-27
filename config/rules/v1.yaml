@@ -1,21 +1,24 @@
 # Rule catalog, version 1. Not effective until every cell is `active`.
+# Only C3 is still pending (needs real data, probe PR4).
 version: 1
-effective_from: null          # set when calibration is done
+effective_from: null          # set when C3 is calibrated and approved
 approved_by: null
-justification: initial draft, thresholds pending calibration (phase 1)
+justification: initial catalog; decisions S2, S3, F6 applied; C3 pending calibration
 
 vector_track:                 # runs once per layer version
-  V1: {name: geometry_valid,    cost_rank: 1, error_code: DQ-541, status: active}
-  V3: {name: attributes_complete, cost_rank: 2, error_code: DQ-501, status: active}
-  V4: {name: code_and_version,  cost_rank: 3, error_code: [DQ-540, DQ-544], status: active}
+  V1: {name: geometry_valid,       cost_rank: 1, error_code: DQ-541, status: active}
+  V3: {name: attributes_complete,  cost_rank: 2, error_code: DQ-501, status: active}
+  V4: {name: code_and_version,     cost_rank: 3, error_code: [DQ-540, DQ-544], status: active}
 
 scene_maze:                   # rows ordered by cost, stop at first non-PASS
-  A1: {name: identity_unique,   row: A, cost_rank: 1, error_code: DQ-530, inputs: [scene_id, registry_lookup], status: active}
-  A2: {name: integrity,         row: A, cost_rank: 2, error_code: DQ-550, inputs: [file, hash_published, hash_received], status: active}
-  A3: {name: baseline_supported, row: A, cost_rank: 3, error_code: DQ-531, inputs: [baseline], params: {supported: []}, status: pending_calibration}
-  B1: {name: crs_coherent,      row: B, cost_rank: 4, error_code: DQ-510, inputs: [crs_metadata, crs_file], status: active}
+  A1: {name: identity_unique,    row: A, cost_rank: 1, error_code: DQ-530, inputs: [scene_id, registry_lookup], status: active}
+  A2: {name: integrity,          row: A, cost_rank: 2, error_code: DQ-550, inputs: [file, hash_published, hash_received], status: active}
+  A3: {name: baseline_supported, row: A, cost_rank: 3, error_code: DQ-531, inputs: [baseline],
+       params: {supported: ["04.00", "05.00", "05.09", "05.10", "05.11"], expected_boa_add_offset: -1000}, status: active}
+  B1: {name: crs_coherent,       row: B, cost_rank: 4, error_code: DQ-510, inputs: [crs_metadata, crs_file], status: active}
   B2: {name: footprint_coherent, row: B, cost_rank: 5, error_code: DQ-511, inputs: [footprint, bbox, raster_bounds], status: active}
-  B3: {name: territory_covered, row: B, cost_rank: 6, error_code: DQ-512, inputs: [footprint, territory_geom], params: {min_covered_pct: 100}, status: active}
-  C1: {name: bands_present,     row: C, cost_rank: 7, error_code: DQ-522, inputs: [band_list], params: {required: []}, status: pending_calibration}
-  C2: {name: value_range,       row: C, cost_rank: 8, error_code: DQ-523, inputs: [pixel_stats, baseline], params: {by_baseline: {}}, status: pending_calibration}
-  C3: {name: usable_coverage,   row: C, cost_rank: 9, error_code: [DQ-520, DQ-521], inputs: [scl_mask_clipped], params: {min_usable_coverage_pct: null}, status: pending_calibration}
+  B3: {name: territory_covered,  row: B, cost_rank: 6, error_code: DQ-512, inputs: [footprint, territory_geom], params: {min_covered_pct: 100}, status: active}
+  C1: {name: bands_present,      row: C, cost_rank: 7, error_code: DQ-522, inputs: [band_list], params: {required: [B02, B03, B04, B08, SCL]}, status: active}
+  C2: {name: value_range,        row: C, cost_rank: 8, error_code: DQ-523, inputs: [metadata_offset, pixel_stats, baseline],
+       params: {nodata_dn: 0, max_valid_dn: 32767, offset_source: product_metadata}, status: active}
+  C3: {name: usable_coverage,    row: C, cost_rank: 9, error_code: DQ-520, inputs: [scl_mask_clipped], params: {min_usable_coverage_pct: null}, status: pending_calibration}
