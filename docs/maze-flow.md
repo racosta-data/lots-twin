@@ -30,7 +30,7 @@
 ```mermaid
 flowchart LR
   STAC[(STAC catalog)] --> ING[INGEST<br/>P0-P2<br/>download + hash]
-  ING --> MAZE[MAZE<br/>P3<br/>vector 5x1 + scene 3x3]
+  ING --> MAZE[MAZE<br/>P3<br/>vector 3x1 + scene 3x3]
   MAZE --> ZONES[ZONES<br/>P4<br/>raw / validated /<br/>rejected / unknown]
   ZONES --> PUB[PUBLICATION<br/>P5-P6<br/>manifest + round-trip]
   PUB --> VIEW[Viewer<br/>derived<br/>Mapbox TBD]
@@ -42,22 +42,20 @@ flowchart LR
 
 **Rule:** the viewer is *derived*. Truth lives in the `validated` zone + audit chain.
 
-## 2. Vector track (5x1)
+## 2. Vector track (3x1 in v1)
 ```mermaid
 flowchart TD
-  L[territory layer] --> V1{V1<br/>geometry valid?}
-  V1 -- PASS --> V2{V2<br/>no overlaps?}
+  L[territory layer] --> V1{"V1<br/>geometry valid?"}
+  V1 -- PASS --> V3{"V3<br/>attrs complete?"}
   V1 -- FAIL --> E1[DQ-541]
-  V2 -- PASS --> V3{V3<br/>attrs complete?}
-  V2 -- FAIL --> E2[DQ-542]
-  V3 -- PASS --> V4{V4<br/>DANE code in catalog?}
+  V3 -- PASS --> V4{"V4<br/>DANE code in catalog<br/>and layer version effective?"}
   V3 -- FAIL --> E3[DQ-501]
-  V4 -- PASS --> V5{V5<br/>layer effective?}
-  V4 -- FAIL --> E4[DQ-540]
-  V5 -- PASS --> OPEN[TRACK OPEN]
-  V5 -- FAIL --> E5[DQ-544]
-  E1 & E2 & E3 & E4 & E5 --> BLOCK[[TRACK BLOCKED<br/>scenes = UNKNOWN<br/>subreason=VECTOR_TRACK_FAILED]]
+  V4 -- PASS --> OPEN[TRACK OPEN]
+  V4 -- FAIL --> E4[DQ-540 / DQ-544]
+  E1 & E3 & E4 --> BLOCK[[TRACK BLOCKED<br/>scenes = UNKNOWN<br/>subreason=VECTOR_TRACK_FAILED]]
 ```
+
+V2 (no overlaps) returns in v1.5, when 23 municipalities exist (decision D6).
 
 ## 3. Scene maze (3x3)
 ```mermaid
@@ -123,7 +121,7 @@ flowchart TD
 
 RAW is written at ingestion, before the maze, for every scene. The router only chooses among `validated`, `rejected` and `unknown`. The monthly metric reads all three zones, because "where we know and where we do not" needs the rejected and unknown areas too.
 
-## 6. Audit chain
+## 6. Audit points
 ```mermaid
 flowchart LR
   P0[P0 request] --> P1[P1 catalog resp]
@@ -134,6 +132,8 @@ flowchart LR
   P5 --> P6[P6 upload]
   P6 -.-> P7[P7 consume<br/>deferred to v2]
 ```
+
+Audit points (decision D1): ingestion = P0-P2, maze = P3, persistence = P4, publication = P5-P6. P7 is deferred to v2. The log is append-only with no hash chain in v1 (decision D2); tamper evidence comes from committing the exported log manifest to git.
 
 ## 7. Publication & viewer
 ```mermaid
@@ -153,7 +153,7 @@ UNKNOWN areas are published with their own visible style (hatched), never as emp
 ```mermaid
 flowchart TD
   S[STAC] --> ING[INGEST<br/>raw zone]
-  ING --> VEC{VECTOR 5x1<br/>track open?}
+  ING --> VEC{VECTOR 3x1<br/>track open?}
   VEC -- open --> MAZE[MAZE 3x3<br/>A->B->C<br/>stop at first wall]
   VEC -- blocked --> UNKN[UNKNOWN<br/>VECTOR_TRACK_FAILED]
   MAZE --> Z{ROUTER}
@@ -171,12 +171,12 @@ flowchart TD
 ## P0 decisions
 
 - [x] Precedence FAIL > UNKNOWN. A scene that stops at a wall has FAIL on that cell and NOT_EVALUATED (UNKNOWN) on the rest, and is routed to `rejected`.
-- [x] V5 (layer effective) is the vector track gate: it runs once per layer version and blocks every scene of that territory. It is not a scene-level precondition.
+- [x] Layer effectiveness (V5, folded into V4 by D6) is part of the vector track gate: it runs once per layer version and blocks every scene of that territory. It is not a scene-level precondition.
 - [x] B3 threshold: strict 100% in v1. Revisit with real tile metadata for Barranquilla.
 - [x] C1 (required bands) stays a cell in row C. Revisit after the data access probe (STAC asset list vs opening the file).
 - [x] A2 and A3 stay separate. If A3 never fails in 12 months of data, remove it instead of merging.
 - [x] P7 is deferred to v2.
 - [ ] Publication scope: open until the viewer is chosen (Mapbox or an open alternative).
-- [ ] D1: reduce audit points from 8 to 4 (ingestion P0-P2, maze P3, persistence P4, publication P5-P6). Pending approval.
-- [ ] D2: hash chain on the audit log. Recommendation: postpone and use git for tamper evidence. Pending approval.
-- [ ] D6: vector track in v1 limited to 3 checks (V1 geometry, V3 attributes, V4 + V5 code and version); V2 overlaps returns in v1.5. Pending approval.
+- [x] D1: 4 audit points instead of 8 (ingestion P0-P2, maze P3, persistence P4, publication P5-P6). Approved.
+- [x] D2: no hash chain on the audit log in v1; use git for tamper evidence. Approved.
+- [x] D6: vector track limited to 3 checks in v1 (V1 geometry, V3 attributes, V4 code and layer version); V2 overlaps returns in v1.5. Approved.
