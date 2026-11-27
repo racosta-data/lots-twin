@@ -1,25 +1,36 @@
-# Data Contract v0.2: Geospatial Quality Maze
+# Data Contract v0.3: Geospatial Quality Maze
 
 > Project: `lots-twin`. Territory v1: Barranquilla (DANE `08001`), then Atlántico (`08`), then Colombia (`00`).
-> Status: draft v0.2, written before any product code. All artifacts are in English. Values copied from official sources (for example "Barranquilla") are kept exactly as published.
+> Status: draft v0.3, written before any product code. All artifacts are in English. Values copied from official sources (for example "Barranquilla") are kept exactly as published.
 
 ## 0. Decision status
+
+Items marked "delegated" were decided by the assistant on 26 Nov 2026 under the maintainer's instruction to resolve every pending point. The maintainer can reverse any of them by pull request. Rationale is in `docs/decisions/0001-design-decisions.md`.
 
 | ID | Decision | Status |
 |---|---|---|
 | P7 | Viewer consumption event deferred to v2 | Approved |
-| B3 | Strict 100% territory coverage in v1 | Approved, revisit with real tile metadata |
-| C1 | Required bands stays a cell in row C | Approved, revisit after the data access probe |
+| B3 | Strict 100% territory coverage in v1 | Approved, revisit with probe PR2 |
+| C1 | Required bands stays a cell in row C | Approved |
 | A2/A3 | Stay separate cells | Approved |
 | D1 | 4 audit points instead of 8 | Approved |
-| D2 | No hash chain on the audit log in v1 (use git for tamper evidence) | Approved |
+| D2 | No hash chain on the audit log in v1 | Approved |
 | D6 | Vector track limited to 3 checks in v1 | Approved |
-| D3 | 5 tables; rules live in YAML in git; monthly metric and learning stats are SQL views | Proposed, confirm |
-| D4 | One abstract class (`Rule`); everything else concrete until a second implementation exists | Proposed, confirm |
-| D5 | No audit decorator on rules; the executor writes the evaluation row | Proposed, confirm |
-| D7 | Error catalog reduced to the codes a rule or check actually uses | Proposed, confirm |
-| D8 | Integer rule versions (`C3@2`) instead of semantic versions | Proposed, confirm |
-| Publication | Scope and viewer (Mapbox or open alternative) | Open |
+| D3, D4, D5, D7, D8 | 5 tables, one abstract class, no audit decorator, reduced error catalog, integer rule versions | Approved (delegated) |
+| F1 | `DQ-510` means CRS present but invalid or incoherent; absent is `UNKNOWN / DQ-506` | Approved (delegated) |
+| F2 | Vector-blocked scenes carry the layer check code in `dq_code` | Approved (delegated) |
+| F3 | Keep strict B3 and add a near-miss view | Approved (delegated) |
+| F4 | `DQ-521` merged into `DQ-520` | Approved (delegated) |
+| F5 | Always 9 evaluation rows per scene | Approved (delegated) |
+| F6 | C2 defined from the product metadata offset (section 6.5) | Approved (delegated) |
+| S1 | Source: Copernicus Data Space Ecosystem (STAC + OData) | Decided (delegated), verify in PR1 |
+| S2 | Supported baselines: 04.00, 05.00, 05.09, 05.10, 05.11 | Decided (delegated) |
+| S3 | Required bands: B02, B03, B04, B08, SCL | Decided (delegated) |
+| S5 | Viewer: MapLibre GL JS with PMTiles on static storage | Decided (delegated) |
+| S6 | Publication scope: mask, footprints with zone and code, monthly coverage. No imagery in v1 | Decided (delegated) |
+| S7 | C3 threshold: calibration protocol defined (section 6.2); the value needs real data | Pending data (PR4) |
+| S8 | Contract owner: repository maintainer `racosta-data` | Decided |
+
 
 ## 1. Purpose and scope
 
@@ -81,7 +92,7 @@ UTC, ISO 8601. Percentages in [0, 100] with 2 decimals. Distances in meters, are
 
 ## 4. Input contract: scene
 
-Source v1: Sentinel-2 level L2A through a public STAC catalog. Access, quotas and license are verified in phase 1.
+Source v1 (decision S1): Sentinel-2 level L2A from the Copernicus Data Space Ecosystem. Discovery uses its STAC catalogue; download and checksum use its OData service. An account is required and usage quotas apply. STAC item ids are product names and become `scene_id`. Terms of use, quotas and checksum availability are verified in probe PR1.
 
 | Field | Type | Required | Notes |
 |---|---|---|---|
@@ -97,7 +108,7 @@ Source v1: Sentinel-2 level L2A through a public STAC catalog. Access, quotas an
 | `scene_cloud_pct` | % | No | Provider's global metadata. **Does not decide** |
 | `territory_cloud_pct` | % | Computed | Clipped to the territory. Informative |
 | `usable_coverage` | % | Computed | Observed pixels inside the territory. **Decides in C3** |
-| `hash_published` | text | Yes | Hash declared by the source (A2) |
+| `hash_published` | text | Yes | MD5 checksum declared by the source's OData service (A2). Availability verified in probe PR1 |
 | `hash_received` | text | Computed | Hash of the downloaded file (A2) |
 | `territory_code`, `territory_level` | text | Yes | Municipality, department or country |
 | `zone` | enum | Computed | `validated`, `rejected`, `unknown` |
@@ -127,7 +138,7 @@ Source and license are constants per source and live once in `config/sources/`.
 
 ### 5.2 Vector track (3x1 in v1, runs once per layer version)
 
-If any check fails, no scene is evaluated against that territory and its scenes are `UNKNOWN / VECTOR_TRACK_FAILED`.
+If any check fails, no scene is evaluated against that territory and its scenes are `UNKNOWN / VECTOR_TRACK_FAILED`. Each such scene still writes the 9 evaluation rows, all `UNKNOWN / VECTOR_TRACK_FAILED`, carrying the layer check code (for example `DQ-541`) in `dq_code` (F2).
 
 | Check | Logic | Error |
 |---|---|---|
@@ -147,13 +158,13 @@ Rows are ordered by cost. The scene advances and stops at the first non-PASS cel
 |---|---|---|---|---|
 | **A. Admission** (metadata, file) | **A1** identity | `scene_id` | Not already in the registry | `DQ-530` |
 | | **A2** integrity | file + published hash | Hash matches and the file opens | `DQ-550` |
-| | **A3** baseline | `baseline` | In the catalog of supported versions | `DQ-531` |
+| | **A3** baseline | `baseline` | In the supported list: 04.00, 05.00, 05.09, 05.10, 05.11. An unseen version fails until it is added on purpose | `DQ-531` |
 | **B. Space** | **B1** CRS | metadata + file | Defined and coherent between both | `DQ-510` |
 | | **B2** footprint | footprint, bbox, raster | Valid geometry and bbox matches the raster | `DQ-511` |
 | | **B3** coverage | footprint + territory polygon | Polygon fully inside the footprint | `DQ-512` |
-| **C. Content** (reads pixels) | **C1** bands | band list | Required bands present | `DQ-522` |
-| | **C2** value range | clipped pixels | Within range for the baseline offset | `DQ-523` |
-| | **C3** usable coverage | clipped SCL mask | `usable_coverage` >= threshold | `DQ-520` / `DQ-521` |
+| **C. Content** (reads pixels) | **C1** bands | band list | B02, B03, B04, B08 and SCL present | `DQ-522` |
+| | **C2** value range | clipped pixels | Metadata offset matches the baseline and no valid DN exceeds 32767 (section 6.5) | `DQ-523` |
+| | **C3** usable coverage | clipped SCL mask | `usable_coverage` >= threshold | `DQ-520` |
 
 A cell whose input is absent returns `UNKNOWN / MISSING_INPUT / DQ-506`. "Value present but unsupported" is a FAIL; "value absent" is UNKNOWN.
 
@@ -162,9 +173,13 @@ A cell whose input is absent returns `UNKNOWN / MISSING_INPUT / DQ-506`. "Value 
 | Cell | v1 value | Status |
 |---|---|---|
 | B3 | 100% of the polygon inside the footprint | Approved |
-| C2 | Range per baseline | Define from product documentation |
-| C3 | `null` | **Pending calibration** from 12 months of real Barranquilla data |
+| A3 | Supported list: 04.00, 05.00, 05.09, 05.10, 05.11 | Decided |
+| C1 | B02, B03, B04, B08, SCL | Decided |
+| C2 | Offset by baseline (section 6.5) | Decided |
+| C3 | `null` until calibrated | **Pending data** (probe PR4) |
 | Others | Binary logic | No numeric threshold |
+
+**C3 calibration protocol (S7).** (1) Compute `usable_coverage` for every Barranquilla scene of 12 months. (2) Plot the histogram. (3) Set the threshold at the lowest value where the distribution shows a clear valley between cloudy and clear scenes; if there is no valley, use the value that keeps at least 25% of scenes in `validated`, and record that choice. (4) The maintainer approves it, and it enters `config/rules/` as a new integer version. The 80% used in the L2 simulation is a placeholder, not a result.
 
 A rule whose threshold is `null` or whose status is `pending_calibration` cannot become effective. The loader raises `ContractError` instead of guessing.
 
@@ -173,6 +188,17 @@ A rule whose threshold is `null` or whose status is `pending_calibration` cannot
 One YAML file per version, versioned in git. Fields per cell: `name`, `row`, `cost_rank`, `error_code`, `inputs`, `params`, `status` (`active` or `pending_calibration`). File-level fields: `version` (integer), `effective_from` (date or null), `approved_by`, `justification`.
 
 Changing a threshold or logic creates a new file and a new integer version. Past evaluations keep the version they ran with and are never silently recomputed; reprocessing creates a new `run_id`.
+
+### 6.5 C2 definition (F6)
+
+Facts from the ESA product documentation: since processing baseline 04.00 (25 Jan 2022) Sentinel-2 L2A values carry an offset read from the product metadata (`BOA_ADD_OFFSET`, -1000 for all bands), DN 0 means NoData, valid DN run from 1 to 32767, and reflectance is (DN + BOA_ADD_OFFSET) / quantification value (10000). The offset is applied by baseline, not by acquisition date.
+
+C2 passes only if both hold:
+
+1. The offset in the product metadata equals the expected value for the baseline (-1000 for every supported baseline in S2).
+2. No non-NoData DN exceeds 32767.
+
+The offset and quantification value are read from the metadata and never hard-coded in the cell logic. An absent offset field is `UNKNOWN / MISSING_INPUT`.
 
 ### 6.4 Rule function contract
 
@@ -195,6 +221,8 @@ Changing a threshold or logic creates a new file and a new integer version. Past
 | `code_version` | text | |
 | `evaluated_at` | timestamp UTC | |
 
+**Row count rule (F5):** every scene writes exactly 9 evaluation rows, regardless of where the maze stopped or whether the vector track blocked it. Cells after the stop are `UNKNOWN / NOT_EVALUATED`. This keeps the conservation check and the metric views uniform.
+
 ### 7.2 Zones
 
 | Zone | Content | Guarantee |
@@ -209,7 +237,7 @@ Routing precedence: `FAIL` > `UNKNOWN` > validated. Partitioning: `zone/territor
 ### 7.3 Mask, metrics and conservation
 
 - Observation mask: one COG per scene, clipped to the territory (1 observed, 0 not). It is the proof of "where we know".
-- Monthly coverage, temporal gaps and per-cell pass rates are **SQL views** over `evaluation`, not tables. They read all three zones.
+- Monthly coverage, temporal gaps and per-cell pass rates are **SQL views** over `evaluation`, not tables. They read all three zones. A B3 near-miss view lists scenes rejected by B3 whose covered share is within 5 percentage points of 100% (F3); the 5 points are a view parameter, not a rule.
 - **Conservation invariant:** scenes in = validated + rejected + unknown, checked at each handoff. A mismatch stops the run with `DQ-560`.
 
 ## 8. Audit contract
@@ -243,7 +271,7 @@ The viewer is a presentation layer, not a source of truth.
 
 ### 9.1 Entity `publication` (with embedded manifest)
 
-`publication_id`, `run_id`, `rule_versions` (map cell to version), `files` (name, hash, entity count), `source_crs`, `transformations` (reprojection, simplification tolerance, tiling), `tileset_id`, `tileset_version`, `remote_status`, `active`.
+`publication_id`, `run_id`, `rule_versions` (map cell to version), `files` (name, hash, entity count), `source_crs`, `transformations` (reprojection, simplification tolerance, tiling), `archive_id`, `archive_version`, `remote_status`, `active`.
 
 ### 9.2 Rules
 
@@ -251,9 +279,11 @@ The viewer is a presentation layer, not a source of truth.
 2. **Versioning:** each publication creates a new version and never overwrites.
 3. **`UNKNOWN` is visible:** it has its own style (hatched), never transparent. Absence must not read as "no problem".
 4. **On-screen statement:** the viewer states that it is derived, that geometries may be simplified, and that it is not for measuring.
-5. **Credentials:** a minimal-scope public read token in the client; the secret token only in the publishing process, never in the repository or the browser.
+5. **Credentials:** none in the client, since v1 serves static files. Any storage write key lives only in the publishing process, never in the repository or the browser.
 
-Open: which viewer (Mapbox or an open alternative such as MapLibre with PMTiles) and whether full imagery or only mask and metrics are published. Decided in phase 1 after verifying current limits, quotas and prices.
+**Viewer (S5):** MapLibre GL JS reading a PMTiles archive from static storage. It needs no account, token or quota, and the round-trip check reduces to comparing file hashes and feature counts. The publisher sits behind one concrete class so another viewer, including Mapbox, can be added when a second implementation is justified.
+
+**Publication scope (S6):** vector layers for the observation mask, scene footprints with their zone and code, and monthly coverage. Imagery is not published in v1. Probe PR7 builds one archive and loads it before the publisher is written.
 
 ## 10. Error catalog
 
@@ -263,11 +293,10 @@ Own namespace `DQ-xxx`, separate from HTTP codes.
 |---|---|---|
 | `DQ-501` | Required field null | V3 |
 | `DQ-506` | Unknown state, nothing inferred | Any cell |
-| `DQ-510` | CRS missing, invalid or incoherent | B1 |
+| `DQ-510` | CRS present but invalid or incoherent (absent is `DQ-506`) | B1 |
 | `DQ-511` | Footprint or bbox invalid or incoherent | B2 |
 | `DQ-512` | Territory not covered by the scene | B3 |
-| `DQ-520` | Usable coverage below threshold | C3 |
-| `DQ-521` | NoData above threshold | C3 |
+| `DQ-520` | Usable coverage below threshold (NoData counts as not observed) | C3 |
 | `DQ-522` | Required bands missing | C1 |
 | `DQ-523` | Values out of range for the baseline | C2 |
 | `DQ-530` | Duplicate scene | A1 |
@@ -279,7 +308,7 @@ Own namespace `DQ-xxx`, separate from HTTP codes.
 | `DQ-560` | Conservation broken | Run |
 | `DQ-570` | Publication not verified | Publication |
 
-17 codes. Removed from earlier drafts: `502` to `505` (no rule uses them), `542` (V2 deferred), `561` (duplicates `550`) and `571` (no hash chain). Codes `560` and `521` stay because the invariant and the maze diagram need them.
+16 codes. Removed from earlier drafts: `502` to `505` (no rule uses them), `521` (merged into `520`, since NoData is already excluded from observed pixels), `542` (V2 deferred), `561` (duplicates `550`) and `571` (no hash chain). Code `560` stays because the conservation invariant needs it.
 
 **Exceptions (system failures only):** `InfrastructureError` (disk, network, database unreachable) and `ContractError` (corrupt catalog, invalid schema, rule pending calibration). A rule that fails never raises.
 
@@ -299,7 +328,7 @@ Own namespace `DQ-xxx`, separate from HTTP codes.
 - Rules: integer version, one YAML file per version, immutable once effective.
 - Contract and schema: this document is versioned in git (`docs/contract/`) and changes through pull requests.
 - Every change needs evidence (statistics from real runs), an approver and an effective date.
-- Contract owner: the project maintainer, named in `docs/decisions/`.
+- Contract owner: the repository maintainer (`racosta-data`), recorded in `docs/decisions/`.
 
 ## 13. Acceptance criteria
 
@@ -313,6 +342,7 @@ Own namespace `DQ-xxx`, separate from HTTP codes.
 | 6 | `UNKNOWN` areas are visible and distinguishable in the viewer | Visual review |
 | 7 | Zero imputed values in the `validated` zone | Pixel-origin audit |
 | 8 | The same maze processes Barranquilla and Atlántico without rule changes | Only `territory_code` changes |
+| 9 | Every scene has exactly 9 evaluation rows | Count check per run |
 
 ## 14. Data model and code mapping
 
@@ -329,13 +359,22 @@ Five tables: `scene`, `evaluation`, `run`, `audit_event`, `publication`. Territo
 | Audit | `audit_log.py`, append-only |
 | Calculations | Pure functions: masks, clipping, statistics |
 
-## 15. Open items
+## 15. Probes before code (phase 1)
 
-1. STAC catalog to use, access limits and current license.
-2. How Barranquilla falls against the scene footprints (real metadata).
-3. C3 threshold, calibrated from 12 months of data.
-4. Exact radiometric offset rules per baseline.
-5. Viewer choice and publication scope; limits, quotas and prices.
-6. Current DANE layer version and terms of use.
-7. Confirm D3, D4, D5, D7, D8.
-8. Name the contract owner in `docs/decisions/`.
+Empirical points cannot be decided from a desk. Each one has a success criterion and a cell it unblocks.
+
+| # | Probe | Success criterion | Unblocks |
+|---|---|---|---|
+| PR1 | One STAC search for Barranquilla and one OData download | Item ids returned, MD5 checksum present and matching, quotas and terms noted | A2, source S1 |
+| PR2 | Footprints of the scenes covering Barranquilla over 12 months | Share of scenes with the polygon fully inside; number of tiles involved | B3 |
+| PR3 | Distinct baselines in 12 months of metadata | List matches S2, or the list is extended on purpose | A3 |
+| PR4 | `usable_coverage` distribution (calibration protocol in 6.2) | Histogram and an approved threshold | C3 |
+| PR5 | Visual review of 20 scenes against the SCL mask (water, Cienaga de Mallorquin, urban) | Notes on misclassified areas, recorded as inherited trust | Section 4 |
+| PR6 | Current DANE layer version and terms of use | Version and license recorded in `config/territories.yaml` | V4 |
+| PR7 | Build one mask PMTiles archive and load it in MapLibre | Renders, and `UNKNOWN` shows hatched | Publication |
+
+## 16. Remaining items
+
+1. Per-band checks beyond the five required bands, if analysis needs them.
+2. Extending the supported baseline list when a new version appears (a deliberate change, not automatic).
+3. A second viewer implementation (for example Mapbox) only when there is a reason for it.
