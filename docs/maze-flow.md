@@ -32,9 +32,12 @@ flowchart LR
   STAC[(STAC catalog)] --> ING[INGEST<br/>P0-P2<br/>download + hash]
   ING --> MAZE[MAZE<br/>P3<br/>vector 5x1 + scene 3x3]
   MAZE --> ZONES[ZONES<br/>P4<br/>raw / validated /<br/>rejected / unknown]
-  ZONES --> AUDIT[AUDIT<br/>P0-P7<br/>hash chain<br/>append-only]
-  AUDIT --> PUB[PUBLICATION<br/>P5-P7<br/>manifest + round-trip]
-  PUB --> VIEW[Mapbox viewer<br/>derived]
+  ZONES --> PUB[PUBLICATION<br/>P5-P6<br/>manifest + round-trip]
+  PUB --> VIEW[Viewer<br/>derived<br/>Mapbox TBD]
+  ING -.-> AUDIT[AUDIT<br/>append-only log]
+  MAZE -.-> AUDIT
+  ZONES -.-> AUDIT
+  PUB -.-> AUDIT
 ```
 
 **Rule:** the viewer is *derived*. Truth lives in the `validated` zone + audit chain.
@@ -42,7 +45,7 @@ flowchart LR
 ## 2. Vector track (5x1)
 ```mermaid
 flowchart TD
-  L[territory layer] --> V1{V1	<br/>geometry valid?}
+  L[territory layer] --> V1{V1<br/>geometry valid?}
   V1 -- PASS --> V2{V2<br/>no overlaps?}
   V1 -- FAIL --> E1[DQ-541]
   V2 -- PASS --> V3{V3<br/>attrs complete?}
@@ -88,7 +91,7 @@ flowchart TD
   C3 -. missing input .-> U506
 ```
 
-Rule shown by the dotted edges: a cell whose input is absent returns `UNKNOWN` with subreason `MISSING_INPUT`. The cells after it are `UNKNOWN / NOT_EVALUATED`. Nothing is guessed.
+Rule shown by the dotted edges: a cell whose input is absent returns `UNKNOWN` with subreason `MISSING_INPUT`. After any non-PASS cell (a wall or a missing input) the remaining cells are `UNKNOWN / NOT_EVALUATED`. Nothing is guessed.
 
 ## 4. Gate state machine
 ```mermaid
@@ -100,18 +103,25 @@ stateDiagram-v2
   PASS --> [*]: advance
   FAIL --> [*]: wall -> REJECTED
   UNKNOWN --> [*]: no advance
+  [*] --> NOT_EVALUATED: an earlier cell stopped the scene
+  NOT_EVALUATED --> [*]: no measurement, nothing guessed
 ```
 
 ## 5. Zones & partitioning
 ```mermaid
 flowchart TD
-  RES[scene result] --> ROUTER{router<br/>precedence rule}
-  ROUTER --> RAW[RAW<br/>immutable + hash]
+  ING[ingest done] --> RAW[RAW<br/>immutable + hash<br/>every scene]
+  RAW --> MZ[maze result]
+  MZ --> ROUTER{router<br/>precedence rule}
   ROUTER --> VAL[VALIDATED<br/>9x PASS, 0 imputed]
-  ROUTER --> REJ[REJECTED<br/>>=1 FAIL + DQ]
-  ROUTER --> UNK[UNKNOWN<br/>no FAIL, any UNK]
+  ROUTER --> REJ[REJECTED<br/>1+ FAIL + DQ code]
+  ROUTER --> UNK[UNKNOWN<br/>no FAIL, any UNKNOWN]
   VAL --> MET[METRIC monthly<br/>series level]
+  REJ --> MET
+  UNK --> MET
 ```
+
+RAW is written at ingestion, before the maze, for every scene. The router only chooses among `validated`, `rejected` and `unknown`. The monthly metric reads all three zones, because "where we know and where we do not" needs the rejected and unknown areas too.
 
 ## 6. Audit chain
 ```mermaid
@@ -122,29 +132,40 @@ flowchart LR
   P3 --> P4[P4 persist]
   P4 --> P5[P5 prep]
   P5 --> P6[P6 upload]
-  P6 --> P7[P7 consume]
+  P6 -.-> P7[P7 consume<br/>deferred to v2]
 ```
 
 ## 7. Publication & viewer
 ```mermaid
 flowchart LR
   VAL[validated zone] --> PREP[PREP P5<br/>mask + metrics]
+  UNK[unknown zone] --> PREP
   PREP --> UP[UPLOAD P6<br/>tileset version<br/>no overwrite]
   UP --> RT{round-trip<br/>count + props}
   RT -- match --> ACT[Active=true]
   RT -- mismatch --> NO[DQ-570<br/>active=false]
+  NO --> KEEP[previous version<br/>stays live]
 ```
+
+UNKNOWN areas are published with their own visible style (hatched), never as empty space.
 
 ## 8. One-glance summary
 ```mermaid
 flowchart TD
-  S[STAC] --> ING[INGEST]
-  ING --> VEC[VECTOR 5x1<br/>open/closed]
-  VEC --> MAZE[MAZE 3x3<br/>A->B->C<br/>stop at first wall]
-  MAZE --> Z{VALIDATED / REJECTED / UNKNOWN}
-  Z --> AUD[AUDIT CHAIN<br/>P0-P7 hash-linked]
-  AUD --> PUB[PUBLICATION<br/>manifest + round-trip]
-  PUB --> MAP[Mapbox<br/>derived]
+  S[STAC] --> ING[INGEST<br/>raw zone]
+  ING --> VEC{VECTOR 5x1<br/>track open?}
+  VEC -- open --> MAZE[MAZE 3x3<br/>A->B->C<br/>stop at first wall]
+  VEC -- blocked --> UNKN[UNKNOWN<br/>VECTOR_TRACK_FAILED]
+  MAZE --> Z{ROUTER}
+  Z -- validated --> PUB[PUBLICATION<br/>manifest + round-trip]
+  Z -- unknown --> PUB
+  UNKN --> PUB
+  Z -- rejected --> REJ[REJECTED<br/>audit log only]
+  PUB --> MAP[Viewer<br/>derived]
+  ING -.-> AUD[AUDIT<br/>append-only log]
+  MAZE -.-> AUD
+  Z -.-> AUD
+  PUB -.-> AUD
 ```
 
 ## P0 decisions
@@ -156,3 +177,6 @@ flowchart TD
 - [x] A2 and A3 stay separate. If A3 never fails in 12 months of data, remove it instead of merging.
 - [x] P7 is deferred to v2.
 - [ ] Publication scope: open until the viewer is chosen (Mapbox or an open alternative).
+- [ ] D1: reduce audit points from 8 to 4 (ingestion P0-P2, maze P3, persistence P4, publication P5-P6). Pending approval.
+- [ ] D2: hash chain on the audit log. Recommendation: postpone and use git for tamper evidence. Pending approval.
+- [ ] D6: vector track in v1 limited to 3 checks (V1 geometry, V3 attributes, V4 + V5 code and version); V2 overlaps returns in v1.5. Pending approval.
