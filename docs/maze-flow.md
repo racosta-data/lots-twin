@@ -33,7 +33,7 @@ flowchart LR
   ING --> MAZE[MAZE<br/>P3<br/>vector 3x1 + scene 3x3]
   MAZE --> ZONES[ZONES<br/>P4<br/>raw / validated /<br/>rejected / unknown]
   ZONES --> PUB[PUBLICATION<br/>P5-P6<br/>manifest + round-trip]
-  PUB --> VIEW[Viewer<br/>derived<br/>Mapbox TBD]
+  PUB --> VIEW[Viewer<br/>derived<br/>MapLibre + PMTiles]
   ING -.-> AUDIT[AUDIT<br/>append-only log]
   MAZE -.-> AUDIT
   ZONES -.-> AUDIT
@@ -78,7 +78,7 @@ flowchart TD
   C2 -- PASS --> C3{"C3<br/>usable_coverage >= threshold?"}
   C2 -- FAIL --> R523[REJECTED DQ-523]
   C3 -- PASS --> OK[[VALIDATED]]
-  C3 -- FAIL --> R520[REJECTED DQ-520 / DQ-521]
+  C3 -- FAIL --> R520[REJECTED DQ-520]
   A2 -. missing input .-> U506[UNKNOWN DQ-506]
   A3 -. missing input .-> U506
   B1 -. missing input .-> U506
@@ -176,7 +176,10 @@ flowchart TD
 - [x] C1 (required bands) stays a cell in row C. Revisit after the data access probe (STAC asset list vs opening the file).
 - [x] A2 and A3 stay separate. If A3 never fails in 12 months of data, remove it instead of merging.
 - [x] P7 is deferred to v2.
-- [ ] Publication scope: open until the viewer is chosen (Mapbox or an open alternative).
+- [x] Publication scope and viewer (S5, S6): MapLibre GL JS with PMTiles on static storage; publish mask, footprints and monthly coverage, no imagery in v1.
 - [x] D1: 4 audit points instead of 8 (ingestion P0-P2, maze P3, persistence P4, publication P5-P6). Approved.
 - [x] D2: no hash chain on the audit log in v1; use git for tamper evidence. Approved.
 - [x] D6: vector track limited to 3 checks in v1 (V1 geometry, V3 attributes, V4 code and layer version); V2 overlaps returns in v1.5. Approved.
+- [x] D3, D4, D5, D7, D8: approved (delegated). See docs/decisions/0001-design-decisions.md.
+- [x] F1 to F6 resolved: DQ-510 means CRS present but invalid; vector-blocked scenes carry the layer code; strict B3 plus a near-miss view; DQ-521 merged into DQ-520; 9 evaluation rows per scene; C2 uses the metadata offset.
+- [ ] C3 threshold: pending real data (probe PR4, protocol in contract section 6.2).
