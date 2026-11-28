@@ -1,0 +1,17 @@
+id: C13
+description: Source does not publish a hash.
+facts:
+  hash_published: null
+expected:
+  cells:
+  - PASS
+  - UNKNOWN
+  - UNKNOWN
+  - UNKNOWN
+  - UNKNOWN
+  - UNKNOWN
+  - UNKNOWN
+  - UNKNOWN
+  - UNKNOWN
+  zone: unknown
+  code: DQ-506

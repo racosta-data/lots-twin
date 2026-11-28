@@ -1,7 +1,7 @@
-# Data Contract v0.3: Geospatial Quality Maze
+# Data Contract v0.4: Geospatial Quality Maze
 
 > Project: `lots-twin`. Territory v1: Barranquilla (DANE `08001`), then Atlántico (`08`), then Colombia (`00`).
-> Status: draft v0.3, written before any product code. All artifacts are in English. Values copied from official sources (for example "Barranquilla") are kept exactly as published.
+> Status: draft v0.4. Code has started: the pure domain and the 20 simulation cases run as tests. All artifacts are in English. Values copied from official sources (for example "Barranquilla") are kept exactly as published.
 
 ## 0. Decision status
 
@@ -30,6 +30,14 @@ Items marked "delegated" were decided by the assistant on 26 Nov 2026 under the 
 | S6 | Publication scope: mask, footprints with zone and code, monthly coverage. No imagery in v1 | Decided (delegated) |
 | S7 | C3 threshold: calibration protocol defined (section 6.2); the value needs real data | Pending data (PR4) |
 | S8 | Contract owner: repository maintainer `racosta-data` | Decided |
+| M1 | No `audit_event` table; the path is rebuilt from `evaluation`, `run` and the `publication` manifest | Approved |
+| M2 | No DuckDB registry in v1: A1 checks `data/raw/<scene_id>`; evaluations are Parquet files per run, queried with DuckDB | Approved |
+| M3 | Code in two packages (`domain`, `pipeline`) until there is a concrete reason to split | Approved |
+| M4 | Build order: pure rules for all 9 cells and the 20 case tests first, then real measurement for A1, A2, B3, C3, then B1, B2, C1, C2 | Approved, step 1 done |
+| M5 | New documents are frozen until real data exists | Approved |
+| M6 | Add drift alert, `cell_memory`, threshold suggestion, deterministic hash, always-produced mask and minimal CI | Approved, drift, memory, suggestion, hash and CI done |
+| M7 | Probe PR7 (PMTiles) moves after L4 | Approved |
+| M8 | C3 stays a gate in v1; reopen as a measure with a partial zone after PR4 | Open until PR4 |
 
 
 ## 1. Purpose and scope
@@ -202,7 +210,7 @@ The offset and quantification value are read from the metadata and never hard-co
 
 ### 6.4 Rule function contract
 
-`evaluate(context) -> Result` is pure: it does not read disk, write, or touch the network. Everything it needs arrives measured in `context`. A `ContextBuilder` in infrastructure computes hashes, CRS, bbox and pixel statistics, and it is **lazy**: row C values are computed only when a cell asks for them, so a duplicate scene that dies in A1 never pays for pixel reads.
+`evaluate(context) -> Result` is pure: it does not read disk, write, or touch the network. Everything it needs arrives measured in `context`. A `ContextBuilder` in `pipeline/` computes hashes, CRS, bbox and pixel statistics, and it is **lazy**: row C values are computed only when a cell asks for them, so a duplicate scene that dies in A1 never pays for pixel reads.
 
 ## 7. Output contract
 
@@ -234,6 +242,11 @@ The offset and quantification value are read from the metadata and never hard-co
 
 Routing precedence: `FAIL` > `UNKNOWN` > validated. Partitioning: `zone/territory_code/year/month/`.
 
+### 7.4 Mask always produced and deterministic hash (M6)
+
+- The observation mask and the measured values are produced for every scene that reaches C3, even when C3 fails. If a partial zone is adopted later (M8), nothing has to be recomputed.
+- Output hashes are computed over canonical content (rows sorted, canonical JSON, no timestamps, no run ids), never over raw file bytes that embed metadata. Acceptance criterion 3 depends on this.
+
 ### 7.3 Mask, metrics and conservation
 
 - Observation mask: one COG per scene, clipped to the territory (1 observed, 0 not). It is the proof of "where we know".
@@ -253,17 +266,29 @@ Routing precedence: `FAIL` > `UNKNOWN` > validated. Partitioning: `zone/territor
 
 P7 (viewer consumption) is deferred to v2.
 
-### 8.2 Entity `audit_event` (append-only)
+### 8.2 No separate event table (M1)
 
-`event_id`, `run_id`, `point`, `scene_id` (null for batch events), `occurred_at`, `actor`, `payload_hash`. There is no hash chain in v1 (D2): the registry is exported and its manifest hash committed to git, which already makes tampering detectable. The chain returns if an external party requires it.
+The audit points are rebuilt from three sources: the `evaluation` rows (maze), the `run` record (ingestion parameters, counts per zone, hashes of the files written) and the `publication` manifest (publication). Every file is written once per run and never modified (writing to an existing path is an error). The hash of the exported run manifest is committed to git (D2).
 
 ### 8.3 Entity `run`
 
-`run_id`, `started_at`, `finished_at`, `status`, `code_version`, `dependencies_hash`, `rule_catalog_hash`, `environment`. If the repository has uncommitted changes, the run **refuses to start**.
+`run_id`, `started_at`, `finished_at`, `status`, `code_version`, `dependencies_hash`, `rule_catalog_hash`, `environment`, `ingestion` (query parameters, counts, ids), `zone_counts`, `files` (name and canonical hash). If the repository has uncommitted changes, the run **refuses to start**.
 
 ### 8.4 Not audited
 
 Per-pixel content at every step (the hash is stored, not a copy), performance metrics nobody reads, and debug logs (a separate channel).
+
+### 8.5 Learning layer (M6)
+
+The maze starts knowing nothing and fills its memory with every scene. The rule that makes this compatible with "never invent": **what is learned proposes, the rules decide.** Nothing learned changes a result without a new, approved rule version.
+
+| Piece | What it does | Status |
+|---|---|---|
+| `cell_memory` view | Per cell and territory: PASS, FAIL and UNKNOWN counts, first seen, last seen, last non-PASS. The persistent switch of the Shannon metaphor | Implemented |
+| Drift alert | Flags a cell that fails for more than 50% of the evaluated scenes of one run, with at least 5 scenes. Usual cause: the source changed, for example a new baseline | Implemented |
+| Threshold suggestion | Proposes the C3 value from the observed distribution (valley method, fallback keeps 25% of scenes). A proposal, never applied automatically | Implemented |
+| Learned cell order | Reorders cells of equal cost by failure rate | Not in v1: the order stays fixed and versioned |
+| Predictive model | Predicts rejection from metadata before downloading | Not in v1: needs volume (Atlantico or Colombia) |
 
 ## 9. Publication contract
 
@@ -343,10 +368,12 @@ Own namespace `DQ-xxx`, separate from HTTP codes.
 | 7 | Zero imputed values in the `validated` zone | Pixel-origin audit |
 | 8 | The same maze processes Barranquilla and Atlántico without rule changes | Only `territory_code` changes |
 | 9 | Every scene has exactly 9 evaluation rows | Count check per run |
+| 10 | A run where one cell fails for more than half of the scenes raises a drift alert | Test with synthetic scenes (done) |
+| 11 | CI runs the unit tests, the 20 case fixtures and the diagram check on every push | GitHub Actions |
 
 ## 14. Data model and code mapping
 
-Five tables: `scene`, `evaluation`, `run`, `audit_event`, `publication`. Territories load from `config/territories.yaml`. Rules load from `config/rules/`. Metrics are SQL views. Masks are COG files.
+Four datasets stored as Parquet files per run: `scene`, `evaluation`, `run`, `publication` (M1). Territories load from `config/territories.yaml`. Rules load from `config/rules/`. Metrics are SQL views. Masks are COG files.
 
 | Contract element | Code component |
 |---|---|
@@ -354,9 +381,9 @@ Five tables: `scene`, `evaluation`, `run`, `audit_event`, `publication`. Territo
 | Cells | `Rule` (abstract) with one subclass per cell |
 | Traversal | `Maze(rows, columns)`, `Traversal` in `domain/` |
 | Routing | `domain/routing.py` (`FAIL` > `UNKNOWN` > validated) |
-| Measurement | `ContextBuilder` (lazy) in `infrastructure/` |
-| Registry | DuckDB behind `registry.py` |
-| Audit | `audit_log.py`, append-only |
+| Measurement | `ContextBuilder` (lazy) in `pipeline/` |
+| Registry | Files under `data/raw/` (A1) and Parquet per run, queried with DuckDB (M2) |
+| Audit | `evaluation` + `run` + manifest, no event table (M1) |
 | Calculations | Pure functions: masks, clipping, statistics |
 
 ## 15. Probes before code (phase 1)
@@ -371,7 +398,7 @@ Empirical points cannot be decided from a desk. Each one has a success criterion
 | PR4 | `usable_coverage` distribution (calibration protocol in 6.2) | Histogram and an approved threshold | C3 |
 | PR5 | Visual review of 20 scenes against the SCL mask (water, Cienaga de Mallorquin, urban) | Notes on misclassified areas, recorded as inherited trust | Section 4 |
 | PR6 | Current DANE layer version and terms of use | Version and license recorded in `config/territories.yaml` | V4 |
-| PR7 | Build one mask PMTiles archive and load it in MapLibre | Renders, and `UNKNOWN` shows hatched | Publication |
+| PR7 (after L4) | Build one mask PMTiles archive and load it in MapLibre | Renders, and `UNKNOWN` shows hatched | Publication |
 
 ## 16. Remaining items
 

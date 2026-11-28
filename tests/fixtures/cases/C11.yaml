@@ -1,0 +1,17 @@
+id: C11
+description: Metadata offset is 0 although baseline 05.11 requires -1000.
+facts:
+  metadata_offset: 0
+expected:
+  cells:
+  - PASS
+  - PASS
+  - PASS
+  - PASS
+  - PASS
+  - PASS
+  - PASS
+  - FAIL
+  - UNKNOWN
+  zone: rejected
+  code: DQ-523

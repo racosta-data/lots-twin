@@ -1,0 +1,21 @@
+id: C10
+description: Product without band B08.
+facts:
+  bands:
+  - B02
+  - B03
+  - B04
+  - SCL
+expected:
+  cells:
+  - PASS
+  - PASS
+  - PASS
+  - PASS
+  - PASS
+  - PASS
+  - FAIL
+  - UNKNOWN
+  - UNKNOWN
+  zone: rejected
+  code: DQ-522

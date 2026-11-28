@@ -1,0 +1,17 @@
+id: C02
+description: Clear scene with about 38% water (river, coast, Cienaga de Mallorquin).
+facts:
+  usable_coverage_pct: 94.0
+expected:
+  cells:
+  - PASS
+  - PASS
+  - PASS
+  - PASS
+  - PASS
+  - PASS
+  - PASS
+  - PASS
+  - PASS
+  zone: validated
+  code: null

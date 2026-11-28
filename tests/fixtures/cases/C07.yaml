@@ -1,0 +1,17 @@
+id: C07
+description: CRS in metadata differs from CRS in file.
+facts:
+  crs_file: 32619
+expected:
+  cells:
+  - PASS
+  - PASS
+  - PASS
+  - FAIL
+  - UNKNOWN
+  - UNKNOWN
+  - UNKNOWN
+  - UNKNOWN
+  - UNKNOWN
+  zone: rejected
+  code: DQ-510

@@ -1,0 +1,10 @@
+Metadata-Version: 2.4
+Name: lots-twin
+Version: 0.1.0
+Summary: Geospatial data quality maze: decides what is reliable and never invents a value.
+Requires-Python: >=3.10
+Requires-Dist: pyyaml>=6
+Requires-Dist: pyarrow>=14
+Requires-Dist: duckdb>=1.0
+Provides-Extra: dev
+Requires-Dist: pytest>=8; extra == "dev"

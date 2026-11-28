@@ -1,0 +1,17 @@
+id: C14
+description: Baseline field empty.
+facts:
+  baseline: null
+expected:
+  cells:
+  - PASS
+  - PASS
+  - UNKNOWN
+  - UNKNOWN
+  - UNKNOWN
+  - UNKNOWN
+  - UNKNOWN
+  - UNKNOWN
+  - UNKNOWN
+  zone: unknown
+  code: DQ-506

@@ -1,0 +1,17 @@
+id: C03
+description: Scene with baseline 04.00 and offset of 1000.
+facts:
+  baseline: '04.00'
+expected:
+  cells:
+  - PASS
+  - PASS
+  - PASS
+  - PASS
+  - PASS
+  - PASS
+  - PASS
+  - PASS
+  - PASS
+  zone: validated
+  code: null

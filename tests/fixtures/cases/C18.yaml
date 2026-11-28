@@ -1,0 +1,17 @@
+id: C18
+description: Territory layer lacks the required attribute.
+vector:
+  attributes_complete: false
+expected:
+  cells:
+  - UNKNOWN
+  - UNKNOWN
+  - UNKNOWN
+  - UNKNOWN
+  - UNKNOWN
+  - UNKNOWN
+  - UNKNOWN
+  - UNKNOWN
+  - UNKNOWN
+  zone: unknown
+  code: DQ-501

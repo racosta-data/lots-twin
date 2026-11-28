@@ -1,0 +1,17 @@
+id: C19
+description: DANE code of the layer is not in the catalog.
+vector:
+  code_in_catalog: false
+expected:
+  cells:
+  - UNKNOWN
+  - UNKNOWN
+  - UNKNOWN
+  - UNKNOWN
+  - UNKNOWN
+  - UNKNOWN
+  - UNKNOWN
+  - UNKNOWN
+  - UNKNOWN
+  zone: unknown
+  code: DQ-540

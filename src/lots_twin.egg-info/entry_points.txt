@@ -1,0 +1,2 @@
+[console_scripts]
+lots-twin = lots_twin.pipeline.cli:main

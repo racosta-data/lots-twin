@@ -1,0 +1,17 @@
+id: C20
+description: 'Tile edge: 99.6% of the polygon inside the footprint (strict 100% rule).'
+facts:
+  covered_pct: 99.6
+expected:
+  cells:
+  - PASS
+  - PASS
+  - PASS
+  - PASS
+  - PASS
+  - FAIL
+  - UNKNOWN
+  - UNKNOWN
+  - UNKNOWN
+  zone: rejected
+  code: DQ-512

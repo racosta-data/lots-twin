@@ -1,0 +1,17 @@
+id: C09
+description: 'Tile edge: 71% of the territory inside the footprint.'
+facts:
+  covered_pct: 71.0
+expected:
+  cells:
+  - PASS
+  - PASS
+  - PASS
+  - PASS
+  - PASS
+  - FAIL
+  - UNKNOWN
+  - UNKNOWN
+  - UNKNOWN
+  zone: rejected
+  code: DQ-512

@@ -1,0 +1,17 @@
+id: C17
+description: Territory layer has a self-intersecting polygon.
+vector:
+  geometry_valid: false
+expected:
+  cells:
+  - UNKNOWN
+  - UNKNOWN
+  - UNKNOWN
+  - UNKNOWN
+  - UNKNOWN
+  - UNKNOWN
+  - UNKNOWN
+  - UNKNOWN
+  - UNKNOWN
+  zone: unknown
+  code: DQ-541
