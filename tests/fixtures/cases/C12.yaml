@@ -1,0 +1,17 @@
+id: C12
+description: 'Rainy season: 41% usable coverage.'
+facts:
+  usable_coverage_pct: 41.0
+expected:
+  cells:
+  - PASS
+  - PASS
+  - PASS
+  - PASS
+  - PASS
+  - PASS
+  - PASS
+  - PASS
+  - FAIL
+  zone: rejected
+  code: DQ-520

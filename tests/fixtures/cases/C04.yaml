@@ -1,0 +1,17 @@
+id: C04
+description: Same scene ID already ingested.
+facts:
+  scene_in_registry: true
+expected:
+  cells:
+  - FAIL
+  - UNKNOWN
+  - UNKNOWN
+  - UNKNOWN
+  - UNKNOWN
+  - UNKNOWN
+  - UNKNOWN
+  - UNKNOWN
+  - UNKNOWN
+  zone: rejected
+  code: DQ-530

@@ -1,0 +1,15 @@
+id: C01
+description: Clear-sky scene in the dry season over Barranquilla.
+expected:
+  cells:
+  - PASS
+  - PASS
+  - PASS
+  - PASS
+  - PASS
+  - PASS
+  - PASS
+  - PASS
+  - PASS
+  zone: validated
+  code: null

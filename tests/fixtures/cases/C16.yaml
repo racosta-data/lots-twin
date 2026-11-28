@@ -1,0 +1,17 @@
+id: C16
+description: SCL mask not available.
+facts:
+  usable_coverage_pct: null
+expected:
+  cells:
+  - PASS
+  - PASS
+  - PASS
+  - PASS
+  - PASS
+  - PASS
+  - PASS
+  - PASS
+  - UNKNOWN
+  zone: unknown
+  code: DQ-506

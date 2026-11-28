@@ -1,0 +1,17 @@
+id: C08
+description: Metadata bbox does not match raster bounds.
+facts:
+  bbox_matches_raster: false
+expected:
+  cells:
+  - PASS
+  - PASS
+  - PASS
+  - PASS
+  - FAIL
+  - UNKNOWN
+  - UNKNOWN
+  - UNKNOWN
+  - UNKNOWN
+  zone: rejected
+  code: DQ-511

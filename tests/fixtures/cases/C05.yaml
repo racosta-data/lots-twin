@@ -1,0 +1,17 @@
+id: C05
+description: Received hash differs from the published one.
+facts:
+  hash_received: xyz
+expected:
+  cells:
+  - PASS
+  - FAIL
+  - UNKNOWN
+  - UNKNOWN
+  - UNKNOWN
+  - UNKNOWN
+  - UNKNOWN
+  - UNKNOWN
+  - UNKNOWN
+  zone: rejected
+  code: DQ-550

@@ -1,0 +1,17 @@
+id: C15
+description: CRS field empty in metadata.
+facts:
+  crs_metadata: null
+expected:
+  cells:
+  - PASS
+  - PASS
+  - PASS
+  - UNKNOWN
+  - UNKNOWN
+  - UNKNOWN
+  - UNKNOWN
+  - UNKNOWN
+  - UNKNOWN
+  zone: unknown
+  code: DQ-506

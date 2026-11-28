@@ -1,0 +1,17 @@
+id: C06
+description: Baseline 02.14, older than supported.
+facts:
+  baseline: '02.14'
+expected:
+  cells:
+  - PASS
+  - PASS
+  - FAIL
+  - UNKNOWN
+  - UNKNOWN
+  - UNKNOWN
+  - UNKNOWN
+  - UNKNOWN
+  - UNKNOWN
+  zone: rejected
+  code: DQ-531
